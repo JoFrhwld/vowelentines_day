@@ -214,6 +214,6 @@ dependencies:
   - zlib=1.2.13=h03a7124_4
   - zstd=1.5.2=hf913c23_6
   - pip:
-      - fave==2.0.3.dev0
+      - git+https://github.com/JoFrhwld/FAVE@feature/parselmouth-fix
       - praat-parselmouth==0.4.3
 prefix: /Users/joseffruehwald/Documents/misc_repos/vowelentines_day/renv/python/condaenvs/renv-python
