@@ -10,95 +10,267 @@ server: shiny
 ---
 
 ::: panel-tabset
+
 ### Setup
 
 ::: {layout-nrow="1"}
 ```{r}
-helpText(h3("Tell us about yourself!"))
+h3("Tell us about yourself!")
 
 textInput(
   "name",
   "What's your name?",
-  value = "Speaker"
+  value = "Speaker",
 )
 
 selectInput("height", "Are you on the taller side or shorter side?", 
             choices = list("Shorter" = 1, 
                            "Taller" = 2))
+textOutput("speakerfile")
+
+selectInput("passage", 
+            h4("What was your reading passage?"), 
+            choices = list("Rainbow Passage" = 1, 
+                           "Arthur the Rat" = 2,
+                           "Comma Gets a Cure" = 3,
+                           "this is a test" = 4), 
+            selected  = 1)
+
 ```
 
 ```{r}
+h3("Prepare the Alignment!")
+
 fileInput("wav_upload", "Choose wav File",
           multiple = FALSE,
           accept = c(".wav"))
 
 textOutput("duration")
-
-textInput("outpath", "outputpath", value = "aligned")
-
 br()
 actionButton("align", "Align!")
 
-textOutput("alltg")
+textOutput("align_status")
 ```
 
-<div>
-
-One More!
-
-</div>
+```{r}
+h3("Run the extraction!")
+actionButton("extract", "Extract!")
+textOutput("extract_status")
+```
 :::
 
 ### results
 
 ```{r}
-plotOutput("plot")
+plot(cars)
 ```
 :::
 
 ```{r}
 #| context: server
+options(shiny.maxRequestSize = 20 * 1024^2)
 library(reticulate)
+
+## setup: read all passages
+all_passage <- purrr::map(fs::dir_ls("passages"), readLines)
+
+## data directory definition and management
+data_dir <- fs::path_join("data")
+to_align_dir <- fs::path_join(c(data_dir, "to_align"))
+post_align_dir <- fs::path_join(c(data_dir, "post_align_dir"))
+
+to_extract_dir <- fs::path_join(c(data_dir, "to_extract"))
+post_extract_dir <- fs::path_join(c(data_dir, "post_extract_dir"))
+
+
+file_prefix <- "speaker"
+
+if(!fs::dir_exists(data_dir)){
+  fs::dir_create(data_dir)
+}
+
+if(!fs::dir_exists(to_align_dir)){
+  fs::dir_create(to_align_dir)
+}
+
+if(!fs::dir_exists(post_align_dir)){
+  fs::dir_create(post_align_dir)
+}
+
+if(!fs::dir_exists(to_extract_dir)){
+  fs::dir_create(to_extract_dir)
+}
+
+if(!fs::dir_exists(post_extract_dir)){
+  fs::dir_create(post_extract_dir)
+}
+
 makeTG <- reactive({
+   id <- showNotification("Processing wav file...", duration = NULL, closeButton = FALSE)
+   on.exit(removeNotification(id), add = TRUE)
+   
+   ### Process input block
    audio <- tuneR::readWave(input$wav_upload$datapath)
+   text <- all_passage[[as.numeric(input$passage)]]
+   ###
+   
    duration <- round(length(audio@left) / audio@samp.rate, digits = 2)
+   
+   
    praatio <- import("praatio")
    tg <- praatio$textgrid$Textgrid()
    interval <- praatio$textgrid$IntervalTier(
      name = input$name, 
-     entries = list(c('0', as.character(duration), "This is a test")), 
+     entries = list(c('0', as.character(duration), text)), 
      minT = 0,
      maxT = duration
      )
    
    tg$addTier(interval)
-   tg$save("unaligned/0.TextGrid", format = "long_textgrid", includeBlankSpaces = F)
+   
+   tg$save(
+     fs::path_join(
+       c(to_align_dir, glue::glue("{file_prefix}.TextGrid"))
+       ), 
+     format = "long_textgrid", 
+     includeBlankSpaces = F
+    )
    return(glue::glue("{duration} s long"))
  })
- 
-align <- eventReactive(input$align,{
-    req(input$wav_upload)
-    fs::file_move(input$wav_upload$datapath, "unaligned")
-    system("mfa align --clean unaligned english_us_arpa english_us_arpa aligned")
-    return("aligned!")
-  }
-)
 
 output$duration <- renderText({
   req(input$wav_upload)
   return(makeTG())
 })
+ 
 
-output$alltg <- renderText({
+align <- eventReactive(input$align,{
+    req(input$wav_upload)
+    id <- showNotification("Running Montreal Forced Aligner...", duration = NULL, closeButton = FALSE)
+    on.exit(removeNotification(id), add = TRUE)
+    
+    wav_path <- fs::path_join(
+      c(to_align_dir, 
+        glue::glue("{file_prefix}.wav"))
+      )
+    
+    if(fs::link_exists(wav_path)){
+      fs::link_delete(wav_path)
+    }
+    
+    fs::link_create(
+      input$wav_upload$datapath, 
+      wav_path
+      )
+    system(glue::glue("mfa align --clean {to_align_dir} english_us_arpa english_us_arpa {post_align_dir}"))
+    return("aligned!")
+  }
+)
+
+
+output$align_status <- renderText({
   return(align())
 })
 
-randomVals <- eventReactive(input$align, {
-   cars
+create_speakerfile <- reactive({
+  
+  sp_size <- c("f", "m")[as.numeric(input$height)]
+  
+  sp_info <- c(
+    "--name",
+    #"speaker",
+    input$name,
+    "--sex",
+    sp_size,
+    "--speakernum",
+    "1"
+    #"m"
+  )
+  
+  speaker_file <- fs::path_join(
+      c(
+        to_extract_dir,
+        glue::glue("{file_prefix}.spkr")
+      )
+    )
+  
+  if(fs::file_exists(speaker_file)){
+    fs::file_delete(speaker_file)
+  }
+  
+  fs::file_create(
+    fs::path_join(
+      c(
+        to_extract_dir,
+        glue::glue("{file_prefix}.spkr")
+      )
+    )
+  )
+  writeLines(
+    sp_info,
+    con = fs::path_join(
+      c(
+        to_extract_dir,
+        glue::glue("{file_prefix}.spkr")
+      )
+    )
+  )
 })
 
-output$plot <- renderPlot({
-    plot(randomVals())
+output$speakerfile <- renderText({
+  create_speakerfile()
+  return("Speakerfile Created!")
 })
 
+extract <- eventReactive(input$extract, {
+  
+  id <- showNotification("Running FAVE-Extract...", duration = NULL, closeButton = FALSE)
+  on.exit(removeNotification(id), add = TRUE)
+
+  to_extract_tg <- fs::path_join(
+    c(post_align_dir,
+    glue::glue("{file_prefix}.TextGrid"))
+  )
+
+  to_extract_wav <- fs::path_join(
+    c(to_align_dir,
+    glue::glue("{file_prefix}.wav"))
+  )
+  
+  to_extract_spkr <- fs::path_join(
+    c(to_extract_dir,
+    glue::glue("{file_prefix}.spkr"))
+  )
+
+  post_extract_stem <- fs::path_join(
+    c(post_extract_dir, file_prefix)
+  )
+  
+
+  system(
+    stringr::str_c(
+      c(
+        "fave-extract",
+        "--mfa",
+        "--outputFormat txt",
+        "--formantPredictionMethod mahalanobis",
+        "--measurementPointMethod faav",
+        "--nSmoothing 12",
+        #"--remeasure",
+        "--vowelSystem NorthAmerican",
+        glue::glue("--speaker {to_extract_spkr}"),
+        to_extract_wav,
+        to_extract_tg,
+        post_extract_stem
+      ),
+      collapse = " "
+    )
+  )
+  
+  return("extracted")
+})
+
+output$extract_status <- renderText({
+  extract()
+})
 ```

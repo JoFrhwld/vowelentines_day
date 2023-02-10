@@ -14,7 +14,7 @@ dependencies:
   - brotli-bin=1.0.9=hb7f2c08_8
   - brotlipy=0.7.0=py310h90acd4f_1005
   - bzip2=1.0.8=h0d85af4_4
-  - ca-certificates=2022.12.7=h4653dfc_0
+  - ca-certificates=2022.12.7=h033912b_0
   - cairo=1.16.0=h904041c_1014
   - certifi=2022.12.7=pyhd8ed1ab_0
   - cffi=1.15.1=py310ha78151a_3
@@ -27,7 +27,6 @@ dependencies:
   - cython=0.29.33=py310h7a76584_0
   - dataclassy=1.0.1=pyhd8ed1ab_0
   - decorator=5.1.1=pyhd8ed1ab_0
-  - deprecated=1.2.13=pyh6c4a22f_0
   - expat=2.5.0=hf0c8a7f_0
   - ffmpeg=5.1.2=gpl_h8b4fe81_106
   - font-ttf-dejavu-sans-mono=2.37=hab24e00_0
@@ -155,7 +154,7 @@ dependencies:
   - setuptools=67.1.0=pyhd8ed1ab_0
   - six=1.16.0=pyh6c4a22f_0
   - sox=14.4.2=h3fa25e9_1018
-  - sqlalchemy=2.0.2=py310h90acd4f_0
+  - sqlalchemy=2.0.3=py310h90acd4f_0
   - statsmodels=0.13.5=py310h936d966_2
   - svt-av1=1.4.1=hf0c8a7f_0
   - textwrap3=0.9.2=py_0
@@ -169,7 +168,6 @@ dependencies:
   - unicodedata2=15.0.0=py310h90acd4f_0
   - urllib3=1.26.14=pyhd8ed1ab_0
   - wheel=0.38.4=pyhd8ed1ab_0
-  - wrapt=1.14.1=py310h8e9501a_1
   - x264=1!164.3095=h775f41a_2
   - x265=3.5=hbb4e6a2_3
   - xorg-libxau=1.0.9=h35c211d_0
@@ -179,6 +177,8 @@ dependencies:
   - zlib=1.2.13=hfd90126_4
   - zstd=1.5.2=hbc0c0cd_6
   - pip:
+      - deprecated==1.2.13
       - git+https://github.com/JoFrhwld/FAVE@feature/parselmouth-fix
       - praat-parselmouth==0.4.3
+      - wrapt==1.14.1
 prefix: /Users/joseffruehwald/Documents/misc_repos/vowelentines_day/renv/python/condaenvs/renv-python
