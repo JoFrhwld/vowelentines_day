@@ -11,3 +11,7 @@ Encoding: UTF-8
 
 RnwWeave: Sweave
 LaTeX: pdfLaTeX
+
+PythonType: conda
+PythonVersion: 3.10.9
+PythonPath: renv/python/condaenvs/renv-python/bin/python3.10
