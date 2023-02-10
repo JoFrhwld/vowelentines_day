@@ -1,0 +1,1 @@
+CONDA_SUBDIR=osx-64 conda create -p ./renv/python/condaenvs/renv-python montreal-forced-aligner -c conda-forge

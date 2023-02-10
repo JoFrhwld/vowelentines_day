@@ -1,4 +1,5 @@
 renv::restore()
-system("mfa configure -t renv/MFA")
+system("mfa configure -t ~/Documents/MFA")
 system("mfa model download acoustic english_us_arpa")
 system("mfa model download acoustic english_us_arpa")
+system("mfa align --clean unaligned english_us_arpa english_us_arpa aligned")
