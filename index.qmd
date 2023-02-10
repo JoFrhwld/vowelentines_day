@@ -1,11 +1,104 @@
 ---
-title: "vowelentines_day"
+#title: "Vowelentines day"
+format:
+  html:
+    title: "Vowelentines day"
+    theme: flatly
+    page-layout: full
+title-block-banner: true    
+server: shiny
 ---
 
-This is a Quarto website.
+::: panel-tabset
+### Setup
 
-To learn more about Quarto websites visit <https://quarto.org/docs/websites>.
+::: {layout-nrow="1"}
+```{r}
+helpText(h3("Tell us about yourself!"))
+
+textInput(
+  "name",
+  "What's your name?",
+  value = "Speaker"
+)
+
+selectInput("height", "Are you on the taller side or shorter side?", 
+            choices = list("Shorter" = 1, 
+                           "Taller" = 2))
+```
 
 ```{r}
-1 + 1
+fileInput("wav_upload", "Choose wav File",
+          multiple = FALSE,
+          accept = c(".wav"))
+
+textOutput("duration")
+
+textInput("outpath", "outputpath", value = "aligned")
+
+br()
+actionButton("align", "Align!")
+
+textOutput("alltg")
+```
+
+<div>
+
+One More!
+
+</div>
+:::
+
+### results
+
+```{r}
+plotOutput("plot")
+```
+:::
+
+```{r}
+#| context: server
+library(reticulate)
+makeTG <- reactive({
+   audio <- tuneR::readWave(input$wav_upload$datapath)
+   duration <- round(length(audio@left) / audio@samp.rate, digits = 2)
+   praatio <- import("praatio")
+   tg <- praatio$textgrid$Textgrid()
+   interval <- praatio$textgrid$IntervalTier(
+     name = input$name, 
+     entries = list(c('0', as.character(duration), "This is a test")), 
+     minT = 0,
+     maxT = duration
+     )
+   
+   tg$addTier(interval)
+   tg$save("unaligned/0.TextGrid", format = "long_textgrid", includeBlankSpaces = F)
+   return(glue::glue("{duration} s long"))
+ })
+ 
+align <- eventReactive(input$align,{
+    req(input$wav_upload)
+    fs::file_move(input$wav_upload$datapath, "unaligned")
+    system("mfa align --clean unaligned english_us_arpa english_us_arpa aligned")
+    return("aligned!")
+  }
+)
+
+output$duration <- renderText({
+  req(input$wav_upload)
+  return(makeTG())
+})
+
+output$alltg <- renderText({
+  return(align())
+})
+
+randomVals <- eventReactive(input$align, {
+   cars
+})
+
+output$plot <- renderPlot({
+    plot(randomVals())
+})
+
 ```
