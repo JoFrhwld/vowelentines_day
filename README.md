@@ -10,21 +10,23 @@ Ideally this will be a turn key operation. For now
 
     -   I *highly* recommend running `conda config --set auto_activate_base false` after installation.
 
-2.  Create a new RStudio project from Version Control
+2.  The x86_64 version of R must be installed
 
-3.  Delete the `renv.lock` file
+3.  Create a new RStudio project from Version Control
 
-4.  Run `renv::init()`
+4.  Delete the `renv.lock` file
 
-5.  Run `renv::install("reticulate")`
+5.  Run `renv::init()`
 
-6.  In the terminal, run
+6.  Run `renv::install("reticulate")`
+
+7.  In the terminal, run
 
     ``` bash
     CONDA_SUBDIR=osx-64 conda create -p ./renv/python/condaenvs/renv-python montreal-forced-aligner -c conda-forge
     ```
 
-7.  Run the remainder of `config.R`
+8.  Run the remainder of `config.R`
 
 ## Use
 
