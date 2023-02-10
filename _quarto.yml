@@ -1,19 +1,12 @@
 project:
-  type: website
+  type: default
 
-website:
-  title: "vowelentines_day"
-  navbar:
-    left:
-      - href: index.qmd
-        text: Home
-      - about.qmd
-
-format:
-  html:
-    theme: cosmo
-    css: styles.css
-    toc: true
+# website:
+#   title: "vowelentines_day"
+#   navbar:
+#     left:
+#       - href: index.qmd
+#         text: Home
+#       - about.qmd
 
 editor: visual
-
