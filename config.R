@@ -1,10 +1,10 @@
 renv::install("reticulate")
 # per https://github.com/rstudio/renv/issues/993
 
-# reticulate::conda_create(
-#    envname="./renv/python/condaenvs/renv-python",
-#    packages = "montreal-forced-aligner=2.0.6"
-#    )
+reticulate::conda_create(
+   envname="./renv/python/condaenvs/renv-python",
+   packages = "montreal-forced-aligner"
+   )
 
 reticulate::use_condaenv(
   "./renv/python/condaenvs/renv-python", 

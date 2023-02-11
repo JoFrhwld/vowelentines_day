@@ -10,9 +10,9 @@ server: shiny
 ---
 
 ::: panel-tabset
-
 ### Setup
 
+::: {#setup-toggle}
 ::: {layout-nrow="1"}
 ```{r}
 h3("Tell us about yourself!")
@@ -59,18 +59,23 @@ textOutput("extract_status")
 ```
 :::
 
-### results
-
+::: {#setup-plot}
 ```{r}
-plot(cars)
+plotOutput("align_plot")
 ```
+:::
+:::
+
+### Results
 :::
 
 ```{r}
 #| context: server
 options(shiny.maxRequestSize = 20 * 1024^2)
 library(reticulate)
-
+library(ggplot2)
+library(dplyr)
+library(stringr)
 ## setup: read all passages
 all_passage <- purrr::map(fs::dir_ls("passages"), readLines)
 
@@ -168,9 +173,38 @@ align <- eventReactive(input$align,{
 )
 
 
+
 output$align_status <- renderText({
   return(align())
 })
+
+makeAlignPlot <- reactive({
+    tg_df <- readtextgrid::read_textgrid(
+    fs::path_join(
+      c(post_align_dir, "speaker.TextGrid")
+    )
+  )
+  
+  tg_df |> 
+    filter(tier_name == "phones") |> 
+    mutate(vowel = str_detect(text, "[AEIOU]"),
+           text = str_remove(text, r"(\d)")) |> 
+    ggplot(aes(xmin, text,color = vowel))+
+      geom_point() + 
+      theme_minimal() -> p
+  return(p)
+})
+
+output$align_plot <- renderPlot({
+  req(fs::file_exists(
+    fs::path_join(
+      c(post_align_dir, "speaker.TextGrid")
+    )
+  ))
+
+  return(makeAlignPlot())
+})
+
 
 create_speakerfile <- reactive({
   
@@ -256,7 +290,7 @@ extract <- eventReactive(input$extract, {
         "--formantPredictionMethod mahalanobis",
         "--measurementPointMethod faav",
         "--nSmoothing 12",
-        #"--remeasure",
+        "--remeasure",
         "--vowelSystem NorthAmerican",
         glue::glue("--speaker {to_extract_spkr}"),
         to_extract_wav,
