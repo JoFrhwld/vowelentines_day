@@ -9,6 +9,13 @@ title-block-banner: true
 server: shiny
 ---
 
+```{r}
+#| include: false
+
+library(plotly)
+
+```
+
 ::: panel-tabset
 ### Setup
 
@@ -67,15 +74,56 @@ plotOutput("align_plot")
 :::
 
 ### Results
+
+#### Here's your whole vowel plot
+
+::: {layout-row="1"}
+<div>
+
+```{r}
+#| fig-align: center
+plotlyOutput("vowel_plot")
+```
+
+</div>
+:::
+
+Let's focus in on some specific areas
+
+::: {layout-nrow="1"}
+<div>
+
+The low-back merger
+
+```{r}
+plotlyOutput("lowback")
+```
+
+</div>
+
+<div>
+
+The pin\~pen merger
+
+```{r}
+plotlyOutput("pinpen")
+```
+
+</div>
+:::
 :::
 
 ```{r}
 #| context: server
+#| label: setup
+#| echo: false
+#| include: false
 options(shiny.maxRequestSize = 20 * 1024^2)
 library(reticulate)
 library(ggplot2)
 library(dplyr)
 library(stringr)
+library(plotly)
 ## setup: read all passages
 all_passage <- purrr::map(fs::dir_ls("passages"), readLines)
 
@@ -109,6 +157,12 @@ if(!fs::dir_exists(to_extract_dir)){
 if(!fs::dir_exists(post_extract_dir)){
   fs::dir_create(post_extract_dir)
 }
+
+```
+
+```{r}
+#| context: server
+#| label: align-tgsetup
 
 makeTG <- reactive({
    id <- showNotification("Processing wav file...", duration = NULL, closeButton = FALSE)
@@ -149,6 +203,12 @@ output$duration <- renderText({
 })
  
 
+```
+
+```{r}
+#| context: server
+#| label: align-align
+
 align <- eventReactive(input$align,{
     req(input$wav_upload)
     id <- showNotification("Running Montreal Forced Aligner...", duration = NULL, closeButton = FALSE)
@@ -178,6 +238,11 @@ output$align_status <- renderText({
   return(align())
 })
 
+```
+
+```{r}
+#| context: server
+#| label: align-plot
 makeAlignPlot <- reactive({
     tg_df <- readtextgrid::read_textgrid(
     fs::path_join(
@@ -205,6 +270,11 @@ output$align_plot <- renderPlot({
   return(makeAlignPlot())
 })
 
+```
+
+```{r}
+#| context: server
+#| label: extract-spkr
 
 create_speakerfile <- reactive({
   
@@ -256,6 +326,13 @@ output$speakerfile <- renderText({
   return("Speakerfile Created!")
 })
 
+```
+
+```{r}
+#| context: server
+#| label: extract-extract
+
+
 extract <- eventReactive(input$extract, {
   
   id <- showNotification("Running FAVE-Extract...", duration = NULL, closeButton = FALSE)
@@ -306,5 +383,97 @@ extract <- eventReactive(input$extract, {
 
 output$extract_status <- renderText({
   extract()
+})
+```
+
+```{r}
+#| context: server
+#| label: results-dataprep
+
+get_data <- reactive({
+  df <- readr::read_tsv(fs::path_join(
+      c(post_extract_dir, "speaker.txt")
+    ))
+  df |> 
+    filter(
+      F1 < mean(F1) + (4*sd(F1)),
+      F1 > mean(F1) - (4*sd(F1)),
+      F2 < mean(F2) + (4*sd(F2)),
+      F2 > mean(F2) - (4*sd(F2))
+    ) -> out
+  
+  return(out)
+})
+
+```
+
+```{r}
+#| context: server
+#| label: results-vplot
+
+output$vowel_plot <- renderPlotly({
+  req(
+    fs::file_exists(
+    fs::path_join(
+      c(post_extract_dir, "speaker.txt")
+    )
+  ))['p']
+  get_data() |> 
+    ggplot(aes(-F2, -F1, label = ipa_vclass, color = ipa_vclass, text = word))+
+      geom_text() -> p
+  ply <- ggplotly(p, tooltip = "text", width = 600, height = 500)
+  return(ply)
+})
+```
+
+```{r}
+#| context: server
+#| label: results-lowback
+
+output$lowback <- renderPlotly({
+  req(
+    fs::file_exists(
+    fs::path_join(
+      c(post_extract_dir, "speaker.txt")
+    )
+  ))
+  all_dat <-  get_data()
+  lowback <- all_dat |>
+    filter(plt_vclass %in% c("o", "oh"))
+  
+  
+  
+  lowback |> 
+    ggplot(aes(-F2, -F1))+
+      geom_text(aes(label = ipa_vclass, text = word, color = ipa_vclass))->p
+  ply <-ggplotly(p, tooltip = "text") 
+  return(ply)
+})
+
+```
+
+```{r}
+#| context: server
+#| label: results-pinpen
+
+output$pinpen <- renderPlotly({
+  req(
+    fs::file_exists(
+    fs::path_join(
+      c(post_extract_dir, "speaker.txt")
+    )
+  ))
+  all_dat <-  get_data()
+  pinpen <- all_dat |>
+    filter(plt_vclass %in% c("i", "e"),
+           fol_seg %in% c("M", "N", "NG"))
+  
+  
+    
+  pinpen |> 
+    ggplot(aes(-F2, -F1))+
+      geom_text(aes(label = ipa_vclass, text = word, color = ipa_vclass))->p
+  ply <-ggplotly(p, tooltip = "text") 
+  return(ply)
 })
 ```
