@@ -125,7 +125,7 @@ library(dplyr)
 library(stringr)
 library(plotly)
 ## setup: read all passages
-all_passage <- purrr::map(fs::dir_ls("passages"), readLines)
+all_passage_path <- fs::dir_ls("passages")
 
 ## data directory definition and management
 data_dir <- fs::path_join("data")
@@ -170,30 +170,34 @@ makeTG <- reactive({
    
    ### Process input block
    audio <- tuneR::readWave(input$wav_upload$datapath)
-   text <- all_passage[[as.numeric(input$passage)]]
-   ###
-   
+   textpath <- all_passage_path[as.numeric(input$passage)]
+   outpath <- fs::path_join(
+        c(to_align_dir, glue::glue("{file_prefix}.TextGrid"))
+        )   
    duration <- round(length(audio@left) / audio@samp.rate, digits = 2)
-   
-   
-   praatio <- import("praatio")
-   tg <- praatio$textgrid$Textgrid()
-   interval <- praatio$textgrid$IntervalTier(
-     name = input$name, 
-     entries = list(c('0', as.character(duration), text)), 
-     minT = 0,
-     maxT = duration
+   system(
+     glue::glue("python make_tg.py {input$name} {textpath} {duration} {outpath}")
      )
    
-   tg$addTier(interval)
-   
-   tg$save(
-     fs::path_join(
-       c(to_align_dir, glue::glue("{file_prefix}.TextGrid"))
-       ), 
-     format = "long_textgrid", 
-     includeBlankSpaces = F
-    )
+   ## This broke, idk why
+   # praatio <- import("praatio")
+   # tg <- praatio$textgrid$Textgrid()
+   # interval <- praatio$textgrid$IntervalTier(
+   #   name = input$name, 
+   #   entries = list(c('0', as.character(duration), text)), 
+   #   minT = 0,
+   #   maxT = duration
+   #   )
+   # 
+   # tg$addTier(interval)
+   # 
+   # tg$save(
+   #   fs::path_join(
+   #     c(to_align_dir, glue::glue("{file_prefix}.TextGrid"))
+   #     ), 
+   #   format = "long_textgrid", 
+   #   includeBlankSpaces = F
+   #  )
    return(glue::glue("{duration} s long"))
  })
 
