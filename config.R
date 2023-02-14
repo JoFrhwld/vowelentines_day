@@ -3,7 +3,7 @@ renv::install("reticulate")
 
 reticulate::conda_create(
    envname="./renv/python/condaenvs/renv-python",
-   packages = "montreal-forced-aligner"
+   packages = c("python=3.10","montreal-forced-aligner")
    )
 
 reticulate::use_condaenv(

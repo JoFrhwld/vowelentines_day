@@ -5,6 +5,8 @@ format:
     title: "Vowelentines day"
     theme: flatly
     page-layout: full
+    include-in-header: gfonts.html
+    mainfont: "Atkinson Hyperlegible"
 title-block-banner: true    
 server: shiny
 ---
@@ -18,6 +20,10 @@ library(plotly)
 
 ::: panel-tabset
 ### Setup
+
+```{r}
+#includeHTML("gfonts.html")
+```
 
 ::: {#setup-toggle}
 ::: {layout-nrow="1"}
@@ -65,48 +71,72 @@ actionButton("extract", "Extract!")
 textOutput("extract_status")
 ```
 :::
-
-::: {#setup-plot}
-```{r}
-plotOutput("align_plot")
-```
-:::
 :::
 
 ### Results
 
+```{r}
+actionButton("report", "Generate Report!")
+```
+
 #### Here's your whole vowel plot
 
-::: {layout-row="1"}
+```{r}
+plotlyOutput("vowel_plot", height = "600px", width = "700px")
+#plotlyOutput("vowel_plot", width = "700px", height = "700px")
+```
+
+::: {layout-nrows="1"}
 <div>
 
+Your pin\~pen merger or distinction
+
 ```{r}
-#| fig-align: center
-plotlyOutput("vowel_plot")
+plotlyOutput("pinpen")
 ```
 
 </div>
 :::
 
-Let's focus in on some specific areas
-
 ::: {layout-nrow="1"}
 <div>
 
-The low-back merger
+Your /æ/ system!
+
+```{r}
+plotlyOutput("shorta")
+```
+
+</div>
+
+<div>
+
+Your Low-Back vowels
 
 ```{r}
 plotlyOutput("lowback")
 ```
 
 </div>
+:::
+
+::: {layout-ncol="2"}
+<div>
+
+Your /ay/s
+
+```{r}
+plotlyOutput("ayplot")
+```
+
+</div>
 
 <div>
 
-The pin\~pen merger
+Your /aw/s
 
 ```{r}
-plotlyOutput("pinpen")
+plotlyOutput("awplot")
 ```
 
 </div>
@@ -124,6 +154,14 @@ library(ggplot2)
 library(dplyr)
 library(stringr)
 library(plotly)
+library(showtext)
+library(mgcv)
+library(tidyr)
+library(purrr)
+
+font_add_google("Fira Sans", family = "Fira Sans")
+showtext_auto()
+
 ## setup: read all passages
 all_passage_path <- fs::dir_ls("passages")
 
@@ -372,6 +410,7 @@ extract <- eventReactive(input$extract, {
         "--measurementPointMethod faav",
         "--nSmoothing 12",
         "--remeasure",
+        "--tracks",
         "--vowelSystem NorthAmerican",
         glue::glue("--speaker {to_extract_spkr}"),
         to_extract_wav,
@@ -404,9 +443,21 @@ get_data <- reactive({
       F1 > mean(F1) - (4*sd(F1)),
       F2 < mean(F2) + (4*sd(F2)),
       F2 > mean(F2) - (4*sd(F2))
-    ) -> out
+    ) |>  
+  mutate(
+    ipa_vclass = str_remove(ipa_vclass, "[FT]")
+  ) -> out
   
   return(out)
+})
+
+get_tracks <- reactive({
+  df <- readr::read_tsv(
+    fs::path_join(
+      c(post_extract_dir, "speaker.tracks")
+    )
+  )
+  return(df)
 })
 
 ```
@@ -415,7 +466,7 @@ get_data <- reactive({
 #| context: server
 #| label: results-vplot
 
-output$vowel_plot <- renderPlotly({
+vplot<- eventReactive(input$report,{
   req(
     fs::file_exists(
     fs::path_join(
@@ -423,10 +474,24 @@ output$vowel_plot <- renderPlotly({
     )
   ))['p']
   get_data() |> 
-    ggplot(aes(-F2, -F1, label = ipa_vclass, color = ipa_vclass, text = word))+
-      geom_text() -> p
-  ply <- ggplotly(p, tooltip = "text", width = 600, height = 500)
-  return(ply)
+    ggplot(aes(F2, F1, label = ipa_vclass, color = ipa_vclass, text = word))+
+      geom_text()+
+      scale_x_reverse()+
+      scale_y_reverse()+
+      labs(color = "vowel")+
+      theme_bw()-> p
+  ply <- ggplotly(p, tooltip = "text") |> 
+    layout(
+      font = list(
+      family = "Fira Sans"
+      )
+    )
+  ply  
+}
+)            
+
+output$vowel_plot <- renderPlotly({
+  vplot()
 })
 ```
 
@@ -434,8 +499,8 @@ output$vowel_plot <- renderPlotly({
 #| context: server
 #| label: results-lowback
 
-output$lowback <- renderPlotly({
-  req(
+lowback <- eventReactive(input$report, {
+    req(
     fs::file_exists(
     fs::path_join(
       c(post_extract_dir, "speaker.txt")
@@ -448,19 +513,77 @@ output$lowback <- renderPlotly({
   
   
   lowback |> 
-    ggplot(aes(-F2, -F1))+
-      geom_text(aes(label = ipa_vclass, text = word, color = ipa_vclass))->p
-  ply <-ggplotly(p, tooltip = "text") 
+    ggplot(aes(F2, F1))+
+      geom_text(aes(label = ipa_vclass, text = word, color = ipa_vclass), size = 5)+
+      scale_x_reverse()+
+      scale_y_reverse()+
+      scale_color_discrete(limits = sort(unique(all_dat$ipa_vclass)))+
+      labs(color = "vowel")+
+      theme_bw() ->p
+  ply <-ggplotly(p, tooltip = "text") |> 
+      layout(
+      font = list(
+      family = "Fira Sans"
+      )
+    )
   return(ply)
+})
+
+output$lowback <- renderPlotly({
+  lowback()
 })
 
 ```
 
 ```{r}
 #| context: server
+#| label: results-short-a
+
+shorta <- eventReactive(input$report, {
+    req(
+    fs::file_exists(
+    fs::path_join(
+      c(post_extract_dir, "speaker.txt")
+    )
+  ))
+  all_dat <-  get_data()
+  shorta <- all_dat |>
+    filter(plt_vclass %in% c("ae")) |> 
+    mutate(ipa_vclass  = case_when(
+      fol_seg == "N" ~ "æn",
+      fol_seg == "M" ~ "æm",
+      fol_seg == "NG" ~ "æŋ",
+      .default = "æ"
+    ))
+  
+  
+  
+  shorta |> 
+    ggplot(aes(F2, F1))+
+      geom_text(aes(label = ipa_vclass, text = word, color = ipa_vclass), size = 5)+
+      scale_x_reverse()+
+      scale_y_reverse()+
+      labs(color = "vowel")+
+      theme_bw() ->p
+  ply <-ggplotly(p, tooltip = "text") |> 
+      layout(
+      font = list(
+      family = "Fira Sans"
+      )
+    )
+  return(ply)
+})
+
+output$shorta<- renderPlotly({
+  shorta()
+})
+```
+
+```{r}
+#| context: server
 #| label: results-pinpen
 
-output$pinpen <- renderPlotly({
+pinpen <- eventReactive(input$report, {
   req(
     fs::file_exists(
     fs::path_join(
@@ -469,15 +592,247 @@ output$pinpen <- renderPlotly({
   ))
   all_dat <-  get_data()
   pinpen <- all_dat |>
-    filter(plt_vclass %in% c("i", "e"),
-           fol_seg %in% c("M", "N", "NG"))
+    filter(plt_vclass %in% c("i", "e")) |> 
+    mutate(before = case_when(
+      fol_seg %in% c("M", "N", "NG") ~ "/m, n, ŋ/",
+      .default = "other"
+    ) 
+  )
   
-  
-    
   pinpen |> 
-    ggplot(aes(-F2, -F1))+
-      geom_text(aes(label = ipa_vclass, text = word, color = ipa_vclass))->p
-  ply <-ggplotly(p, tooltip = "text") 
+    ggplot(aes(F2, F1))+
+      geom_text(aes(label = ipa_vclass, text = word, color = ipa_vclass), size = 5)+
+      scale_x_reverse()+
+      scale_y_reverse()+
+      scale_color_discrete(limits = sort(unique(all_dat$ipa_vclass)))+
+      labs(color = "vowel")+
+      theme_bw()  +  
+      facet_grid(.~before, label = label_both) ->p
+      
+  ply <-ggplotly(p, tooltip = "text") |>  
+    layout(
+      font = list(
+      family = "Fira Sans"
+      )
+    )
   return(ply)
+})
+
+output$pinpen <- renderPlotly({
+  pinpen()
+})
+```
+
+```{r}
+#| context: server
+#| label: results-ayplot
+ayplot<- eventReactive(input$report,{
+  req(
+    fs::file_exists(
+    fs::path_join(
+      c(post_extract_dir, "speaker.txt")
+    )
+  ))['p']
+  
+  req(
+    fs::file_exists(
+    fs::path_join(
+      c(post_extract_dir, "speaker.tracks")
+    )
+  ))['p']
+  
+  newdat <- tibble(
+    t_prop = seq(0,1, length = 100)
+  )
+
+  
+  
+  all_dat <- get_data() 
+  all_dat |> 
+    summarise(
+      .by = c(ipa_vclass),
+      F1 = mean(F1),
+      F2 = mean(F2)
+    ) |> 
+    filter(
+      ipa_vclass %in% c(
+        "ɪ",
+        "ɛ",
+        "æ",
+        "ɑ"
+      )
+    ) -> 
+    point_vowels
+  
+    get_tracks() |> 
+         filter(plt_vclass %in% c("ay", "ay0")) |> 
+   mutate(
+     .by = id,
+     t_rel = t - min(t),
+     t_prop = t_rel/max(t_rel)
+   ) |> 
+   group_by(plt_vclass, ipa_vclass) |> 
+   tidyr::nest() |> 
+   mutate(
+     f1_models = purrr::map(
+       data,
+       \(df) gam(F1 ~ s(t_prop), data = df)
+     ),
+    f2_models = map(
+       data,
+       \(df) gam(F2 ~ s(t_prop), data = df)
+     ),
+    f1_dat = map(
+      f1_models,
+      \(mod) tibble(newdat, F1 = predict(mod, newdata = newdat))
+    ),
+    f2_dat = map(
+      f2_models,
+      \(mod) tibble(newdat, F2 = predict(mod, newdata = newdat))
+    ),
+    all_dat = map2(
+      f1_dat, f2_dat, left_join
+    )
+   ) |> 
+   select(plt_vclass, ipa_vclass, all_dat) |> 
+   tidyr::unnest(all_dat) ->
+   ay_tracks
+    
+  point_vowels |> 
+    ggplot(aes(F2, F1, label = ipa_vclass, text = ipa_vclass))+
+      geom_text()+
+      geom_path(data = ay_tracks, 
+                arrow = arrow(type = "closed"), 
+                linewidth = 1,
+                aes(color = ipa_vclass))+
+      scale_color_discrete(limits = sort(unique(all_dat$ipa_vclass)))+    
+      scale_x_reverse()+
+      scale_y_reverse()+
+      labs(color = "vowel")+
+      theme_bw()-> p
+    
+  
+  ply <- ggplotly(p, tooltip = "text") |> 
+    layout(
+      font = list(
+      family = "Fira Sans"
+      )
+    )
+  ply  
+}
+)            
+
+output$ayplot <- renderPlotly({
+  ayplot()
+})
+```
+
+```{r}
+#| context: server
+#| label: results-awplot
+awplot<- eventReactive(input$report,{
+  req(
+    fs::file_exists(
+    fs::path_join(
+      c(post_extract_dir, "speaker.txt")
+    )
+  ))['p']
+  
+  req(
+    fs::file_exists(
+    fs::path_join(
+      c(post_extract_dir, "speaker.tracks")
+    )
+  ))['p']
+  
+  newdat <- tibble(
+    t_prop = seq(0,1, length = 100)
+  )
+
+  
+  
+  all_dat <- get_data() 
+  all_dat |> 
+    summarise(
+      .by = c(ipa_vclass),
+      F1 = mean(F1),
+      F2 = mean(F2)
+    ) |> 
+    filter(
+      ipa_vclass %in% c(
+        "ɪ",
+        "ɛ",
+        "æ",
+        "ɑ"
+      )
+    ) -> 
+    point_vowels
+  
+    get_tracks() |> 
+         filter(plt_vclass %in% c("aw")) |> 
+   mutate(
+     .by = id,
+     t_rel = t - min(t),
+     t_prop = t_rel/max(t_rel)
+   ) |> 
+   group_by(plt_vclass, ipa_vclass) |> 
+   tidyr::nest() |> 
+   mutate(
+     f1_models = purrr::map(
+       data,
+       \(df) gam(F1 ~ s(t_prop), data = df)
+     ),
+    f2_models = map(
+       data,
+       \(df) gam(F2 ~ s(t_prop), data = df)
+     ),
+    f1_dat = map(
+      f1_models,
+      \(mod) tibble(newdat, F1 = predict(mod, newdata = newdat))
+    ),
+    f2_dat = map(
+      f2_models,
+      \(mod) tibble(newdat, F2 = predict(mod, newdata = newdat))
+    ),
+    all_dat = map2(
+      f1_dat, f2_dat, left_join
+    )
+   ) |> 
+   select(plt_vclass, ipa_vclass, all_dat) |> 
+   tidyr::unnest(all_dat) |> 
+    mutate(
+      text = glue::glue(
+        "vowel: {ipa_vclass}\n time: {round(t_prop, digits = 2)}"
+      )
+    )->
+   aw_tracks
+    
+  point_vowels |> 
+    ggplot(aes(F2, F1, label = ipa_vclass, text = ipa_vclass))+
+      geom_text()+
+      geom_path(data = aw_tracks,
+                arrow = arrow(type = "closed"),
+                linewidth = 1,
+                aes(color = ipa_vclass)
+                )+
+      scale_color_discrete(limits = sort(unique(all_dat$ipa_vclass)))+    
+      scale_x_reverse()+
+      scale_y_reverse()+
+      labs(color = "vowel")+
+      theme_bw()-> p
+    
+  
+  ply <- ggplotly(p, tooltip = "text") |> 
+    layout(
+      font = list(
+      family = "Fira Sans"
+      )
+    )
+  ply  
+}
+)            
+
+output$awplot <- renderPlotly({
+  awplot()
 })
 ```
