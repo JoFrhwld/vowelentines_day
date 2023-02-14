@@ -2,8 +2,8 @@
 #title: "Vowelentines day"
 format:
   html:
-    title: "Vowelentines day"
-    theme: flatly
+    title: "❤️Vowelentines day❤️"
+    theme: sketchy
     page-layout: full
     include-in-header: gfonts.html
     mainfont: "Atkinson Hyperlegible"
@@ -77,6 +77,10 @@ textOutput("extract_status")
 
 ```{r}
 actionButton("report", "Generate Report!")
+```
+
+```{r}
+#downloadLink("downloadFile", label = "Download Report!", icon = shiny::icon("download"))
 ```
 
 #### Here's your whole vowel plot
@@ -835,4 +839,19 @@ awplot<- eventReactive(input$report,{
 output$awplot <- renderPlotly({
   awplot()
 })
+```
+
+```{r}
+#| context: server
+#| label: download
+
+output$downloadFile <- downloadHandler(
+  filename = function() {
+     paste("data-", Sys.Date(), ".pdf", sep="")
+  },
+  content = function(con) {
+   quarto::quarto_render(input = "reports/vowelentines.qmd", output_file  = con)
+  }
+)
+
 ```
